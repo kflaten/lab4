@@ -44,6 +44,7 @@ def main():
 	width = int(header['width'])
 	wavelet = header['wavelet']
 	q = int(header['q'])
+	
 	decode_dict = {v.encode() : k for k, v in code_dict.iteritems()}
 	#print decode_dict
 
@@ -65,11 +66,12 @@ def main():
 		binary_string = binary_string[i-1:]
 
 	print height, width
+	print decdoed_data
 	LL = (np.cumsum(np.array(decdoed_data[0:int(height/2 * width/2)]))).reshape(height/2, width/2)
 	LH = (np.array(decdoed_data[int(height/2 * width/2):2*int(height/2 * width/2)])*q).reshape(height/2, width/2)
 	HL = (np.array(decdoed_data[2*int(height/2 * width/2):3*int(height/2 * width/2)])*q).reshape(height/2, width/2)
 	HH = (np.array(decdoed_data[3*int(height/2 * width/2):4*int(height/2 * width/2)])*q).reshape(height/2, width/2)
-	
+	show(LL)
 	im = pywt.idwt2( (LL, (LH, HL, HH)), wavelet,mode='periodization' )
 	show(im)
 	scipy.misc.toimage(im).save(output_file)

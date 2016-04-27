@@ -11,6 +11,7 @@ import struct
 import json
 import hashlib
 import os
+from collections import Counter
 
 
 
@@ -35,7 +36,7 @@ def char_count(lst):
 
 
 def huff(lst, side, code):
-    if len(lst) == 1:
+    if type(lst) is np.int64:
         code.append((lst, side))
     else:
         left = huff(lst[0], side + "0", code)
@@ -83,66 +84,23 @@ def construct_code_dict(sorted_list):
     return dict(code)
 
 
-def write_out_file(lst, code_dict, bin_string):
-    with open("compression.bin", "wb") as out_file:
-        hash = hashlib.md5(open(sys.argv[1], "rb").read()).hexdigest()
-
-        size = len(lst)
-
-        header = {'size': size, 'hash': hash}
+def write_out_file(code_dict, bin_string, height, width, wavelet, q):
+    with open("output.cmic", "wb") as out_file:
+        header = {'version': 'CMiCv1', 'height': height, 'width': width, 'wavelet': wavelet, 'q': q}
         json.dump(header, out_file)
         out_file.write("\n")
-        code_dict = dict((ord(k), v)  for k, v in code_dict.items())
+        code_dict = dict((k, v)  for k, v in code_dict.items())
         json.dump(code_dict, out_file)
         out_file.write("\n")
         out_file.write(char2bin(bin_string))
 
 
-def bin_string_offset(code_dict):
-    bin_string = huff_encode(code_dict, sys.argv[1])
+def bin_string_offset(code_dict, lst):
+    bin_string = huff_encode(code_dict, lst)
     rem = (len(bin_string) % 8)
     bin_string += "0" * (8 - rem)
 
     return bin_string
-
-
-def decompress_bin_string():
-    # in_file = open(sys.argv[1], "rb")
-    in_file = open("compression.bin", "rb")
-    header = json.loads(in_file.readline())
-    huffman_code = json.loads(in_file.readline())
-    decode_dict = {v.encode(): chr (int (k)) for k, v in huffman_code.iteritems()}
-    # print decode_dict
-    binary_data = in_file.read()
-    binary_string = ""
-    for byte in binary_data:
-        binary_string += format(ord(byte), '08b')
-    # print binary_string
-
-    decoded_data = ""
-    while len(decoded_data) != header['size']:
-        sub_str = ""
-        i = 0
-        # print len(decoded_data)
-        while sub_str not in decode_dict:
-            # print i
-            # print sub_str
-            sub_str = binary_string[0:i]
-            i += 1
-        decoded_data += decode_dict[sub_str]
-        binary_string = binary_string[i-1:]
-
-    if hashlib.md5(decoded_data).hexdigest() == header['hash']:
-        f = open(sys.argv[2], 'wb')
-        f.write(decoded_data)
-        f.close()
-        print "MD hash mathced. Wrote %i bytes to %s" %(len(decoded_data), sys.argv[2])
-    else:
-        print "MD5 hash mismatch"
-
-    return binary_string
-
-
 
 # open the image and take the 2D DWT
 # After that, it's up to you!
@@ -161,58 +119,46 @@ def main():
     except:
         print "Unable to open input image. Qutting."
         quit()
-    show(im)
+    #show(im)
     # get height and width
     (height, width) = im.shape
     wavelet = args.wavelet
     q = args.quantize
 
     LL, (LH, HL, HH) = pywt.dwt2(im, wavelet, mode='periodization')
-    # print height * width
-    flat_LL = LL.flatten()
-    # print len(flat_LL)
+    #show(LL)
+    flat_LL = LL.astype(int).flatten()
 
-    flat_LL2 = np.insert(flat_LL, 0, 0.0)
+
+    flat_LL2 = np.insert(flat_LL, 0, 0)
     diff_flat_LL2 = np.diff(flat_LL2)
-    cum_flat_LL = np.cumsum(diff_flat_LL2)
+    #cum_flat_LL = np.cumsum(diff_flat_LL2)
 
     HLq = HL / q
     LHq = LH / q
     HHq = HH / q
 
-    HLq_np = np.array(HLq)
-    HLq_int = HLq_np.astype(int)
-    HLq_lst = list(HLq_int)    
+    HLq_lst = list(HLq.flatten().astype(int))
+    HHq_lst = list(HHq.flatten().astype(int))
+    LHq_lst = list(LHq.flatten().astype(int))  
 
-    HHq_np = np.array(HHq)
-    HHq_int = HHq_np.astype(int)
-    HHq_lst = list(HHq_int)
+    flat_LL_lst = list(diff_flat_LL2)
 
-    LHq_np = np.array(LHq)
-    LHq_int = LHq_np.astype(int)
-    LHq_lst = list(LHq_int)
-
-    flat_LL_lst = list(cum_flat_LL)
+    #img_lst = list(cum_flat_LL.astype(int), LHq.flatten().astype(int), HLq.flatten().astype(int), HHq.flatten().astype(int))
 
     img_lst = flat_LL_lst + LHq_lst + HLq_lst + HHq_lst
+    print img_lst
+    #print img_lst
+    #quit()
 
-    sorted_list = char_count(img_lst)
-
+    sorted_list = dict(Counter(img_lst)).items()
+    
     code_dict = construct_code_dict(sorted_list)
 
-    bin_string = bin_string_offset(code_dict)
+    bin_string = bin_string_offset(code_dict, img_lst)
 
-    write_out_file(lst, code_dict, bin_string)
-
-    decompressed_bin = decompress_bin_string()
-
-    header = {'version': 'CMiCv1', 'height': height, 'width': width, 'wavelet': wavelet, 'q': quantization}
-    json.dump(header, out_file)
-    out_file.write("\n")
-    code_dict = dict((ord(k), v)  for k, v in code_dict.items())
-    json.dump(code_dict, out_file)
-    out_file.write("\n")
-    out_file.write(char2bin(bin_string))
+    write_out_file(code_dict, bin_string, height, width, wavelet, q)
+    
 
     '''the following block of code will let you look at the decomposed image. Uncomment it if you'd like
     dwt = np.zeros((height, width))
@@ -221,8 +167,7 @@ def main():
     dwt[0:height / 2, width / 2:] = LH
     dwt[height / 2:, width / 2:] = HH
     show(dwt)
-
-'''
+    '''
 
 
 if __name__ == '__main__':
