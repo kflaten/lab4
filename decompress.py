@@ -46,7 +46,6 @@ def main():
 	q = int(header['q'])
 	
 	decode_dict = {v.encode() : k for k, v in code_dict.iteritems()}
-	#print decode_dict
 
 	binary_data = input_file.read()
 	binary_string = ""
@@ -75,5 +74,6 @@ def main():
 	im = pywt.idwt2( (LL, (LH, HL, HH)), wavelet,mode='periodization' )
 	show(im)
 	scipy.misc.toimage(im).save(output_file)
+	
 if __name__ == '__main__':
 	main()

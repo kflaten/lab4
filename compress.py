@@ -120,19 +120,17 @@ def main():
         print "Unable to open input image. Qutting."
         quit()
     #show(im)
+
     # get height and width
     (height, width) = im.shape
     wavelet = args.wavelet
     q = args.quantize
 
     LL, (LH, HL, HH) = pywt.dwt2(im, wavelet, mode='periodization')
-    #show(LL)
+    
     flat_LL = LL.astype(int).flatten()
-
-
     flat_LL2 = np.insert(flat_LL, 0, 0)
     diff_flat_LL2 = np.diff(flat_LL2)
-    #cum_flat_LL = np.cumsum(diff_flat_LL2)
 
     HLq = HL / q
     LHq = LH / q
@@ -144,12 +142,7 @@ def main():
 
     flat_LL_lst = list(diff_flat_LL2)
 
-    #img_lst = list(cum_flat_LL.astype(int), LHq.flatten().astype(int), HLq.flatten().astype(int), HHq.flatten().astype(int))
-
     img_lst = flat_LL_lst + LHq_lst + HLq_lst + HHq_lst
-    print img_lst
-    #print img_lst
-    #quit()
 
     sorted_list = dict(Counter(img_lst)).items()
     
